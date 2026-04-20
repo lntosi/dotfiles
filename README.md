@@ -44,6 +44,13 @@ curl -fsSL https://raw.githubusercontent.com/lntosi/dotfiles/main/claude/install
 3. Merges the `statusLine` field into `settings.json` via `jq` — your other settings stay intact
 4. Runs a smoke test so you see the output immediately
 
+The installer is transparent and safe-by-default:
+
+- **Always shows a unified diff** of what will change (both in `settings.json` and in `statusline.sh`) before touching anything.
+- **Prompts for confirmation** only when there's real risk: an existing customized `statusLine` would be replaced, or the installed `statusline.sh` differs from the source. Fresh installs and identical re-runs are silent no-ops.
+- **Non-interactive shells** (e.g. `curl … | bash`) abort with a clear error when a conflict is detected. Set `CLAUDE_STATUSLINE_FORCE=1` to skip prompts in automation.
+- **Timestamped backup** (`settings.json.bak-<ts>`) is kept as a final safety net.
+
 ### Uninstall
 
 ```bash
