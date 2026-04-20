@@ -1,0 +1,10 @@
+# Machine-local / derived files (safety net — nothing here is typically committed anyway)
+*.bak
+*.bak-*
+*.tmp
+*.swp
+.DS_Store
+
+# Editor workspaces
+.vscode/
+.idea/
