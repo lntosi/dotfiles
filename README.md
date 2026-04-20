@@ -6,7 +6,14 @@ Personal configuration files for reproducible setup across machines.
 
 Custom statusline for [Claude Code](https://claude.com/claude-code).
 
-Shows: current directory | model | context usage (bar + %) | 5h quota remaining | 7d quota used | session duration.
+### Fields
+
+- **cwd** — current working directory (`$HOME` collapsed to `~`).
+- **model** — active model's `display_name`, shown in cyan.
+- **ctx** — 10-cell progress bar + percentage of the context window used; green <50%, yellow <80%, red ≥80%.
+- **5h** — percent consumed of the 5-hour rate-limit window and time until it resets (`78% → 2h22m`). Falls back to `—` until the payload includes `rate_limits.five_hour`.
+- **7d** — percent consumed of the 7-day rate-limit window. Falls back to `—` when absent.
+- **⏱** — cumulative duration of the current session (`Xh Ym`).
 
 ### Install
 
