@@ -12,7 +12,7 @@ Personal dotfiles. Currently ships one artifact: a custom statusline for Claude 
 # Install the statusline on the current machine
 ./claude/install.sh
 
-# Skip confirmation prompts (for automation / curl-pipe)
+# Skip confirmation prompts (for automation)
 CLAUDE_STATUSLINE_FORCE=1 ./claude/install.sh
 
 # Run the statusline directly with a sample payload (what install.sh's smoke test does)
@@ -49,5 +49,5 @@ Non-interactive shells (no TTY on stdin) abort on conflict rather than silently 
 
 ## Relevant context from README.md
 
-- Distribution model is `git clone ~/dotfiles` + run the installer. There is a documented curl-pipe path but it is known-broken (installer expects `statusline.sh` next to it); prefer the clone flow.
+- Distribution model is `git clone ~/dotfiles` + run the installer. The installer expects `statusline.sh` next to it on disk — curl-pipe is intentionally unsupported.
 - Hard dependency: `jq`. The installer fails fast if it's missing.

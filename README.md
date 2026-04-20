@@ -24,15 +24,6 @@ git clone git@github.com:lntosi/dotfiles.git ~/dotfiles
 ~/dotfiles/claude/install.sh
 ```
 
-Or as a one-shot curl-pipe (replace `main` with a tag if you want version pinning):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/lntosi/dotfiles/main/claude/install.sh \
-  | STATUSLINE_SRC=https://raw.githubusercontent.com/lntosi/dotfiles/main/claude/statusline.sh bash
-```
-
-> The curl-pipe version requires a small tweak to `install.sh` — currently it expects `statusline.sh` to sit next to it. Prefer the `git clone` flow.
-
 ### Requirements
 
 - `bash` (macOS / Linux default)
