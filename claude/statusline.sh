@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Code statusline.
 # Reads session JSON from stdin, prints one line.
-# Fields: cwd | model | context bar + % | 5h used% → reset | 7d quota used | session duration.
+# Fields: cwd | model | context bar + % | 5h used% → reset | 7d used% → day+hours | session duration.
 #
 # Toggle: export CLAUDE_STATUSLINE_OFF=1 to disable (silent exit, no line rendered).
 #         unset CLAUDE_STATUSLINE_OFF (or set to 0) to re-enable.
@@ -17,9 +17,10 @@ MODEL=$(printf '%s' "$INPUT"  | jq -r '.model.display_name                    //
 CWD=$(printf '%s' "$INPUT"    | jq -r '.workspace.current_dir                 // "."')
 CTX_PCT=$(printf '%s' "$INPUT"| jq -r '.context_window.used_percentage        // 0 | floor')
 DUR_MS=$(printf '%s' "$INPUT" | jq -r '.cost.total_duration_ms                // 0')
-FIVEH_RESET=$(printf '%s' "$INPUT" | jq -r '.rate_limits.five_hour.resets_at      // empty')
-FIVEH_PCT=$(printf '%s' "$INPUT"   | jq -r '.rate_limits.five_hour.used_percentage // empty')
-SEVEND_PCT=$(printf '%s' "$INPUT"  | jq -r '.rate_limits.seven_day.used_percentage // empty')
+FIVEH_RESET=$(printf '%s' "$INPUT"  | jq -r '.rate_limits.five_hour.resets_at       // empty')
+FIVEH_PCT=$(printf '%s' "$INPUT"    | jq -r '.rate_limits.five_hour.used_percentage  // empty')
+SEVEND_PCT=$(printf '%s' "$INPUT"   | jq -r '.rate_limits.seven_day.used_percentage  // empty')
+SEVEND_RESET=$(printf '%s' "$INPUT" | jq -r '.rate_limits.seven_day.resets_at        // empty')
 
 # --- CWD: collapse $HOME to ~ ---
 CWD_SHORT="${CWD/#$HOME/~}"
@@ -43,9 +44,9 @@ else
 fi
 
 # --- 5h quota: used% → time until reset ---
+NOW=$(date +%s)
 FIVEH_TIME=""
 if [ -n "$FIVEH_RESET" ]; then
-    NOW=$(date +%s)
     REMAIN_S=$(( FIVEH_RESET - NOW ))
     if [ "$REMAIN_S" -gt 0 ]; then
         REMAIN_H=$(( REMAIN_S / 3600 ))
@@ -64,11 +65,25 @@ elif [ -n "$FIVEH_TIME" ];                         then FIVEH_TEXT="$FIVEH_TIME"
 else                                                    FIVEH_TEXT="—"
 fi
 
-# --- 7d quota used ---
-if [ -n "$SEVEND_PCT" ]; then
-    SEVEND_TEXT="$(printf '%.0f' "$SEVEND_PCT")%"
-else
-    SEVEND_TEXT="—"
+# --- 7d quota: used% → day of week + hours until reset ---
+SEVEND_TIME=""
+if [ -n "$SEVEND_RESET" ]; then
+    REMAIN_S=$(( SEVEND_RESET - NOW ))
+    if [ "$REMAIN_S" -gt 0 ]; then
+        RESET_DAY=$(date -d "@$SEVEND_RESET" +%a)
+        RESET_HOUR=$(date -d "@$SEVEND_RESET" +%H:%M)
+        SEVEND_TIME="${RESET_DAY} ${RESET_HOUR}"
+    else
+        SEVEND_TIME="reset"
+    fi
+fi
+SEVEND_USED=""
+[ -n "$SEVEND_PCT" ] && SEVEND_USED="$(printf '%.0f' "$SEVEND_PCT")%"
+
+if   [ -n "$SEVEND_USED" ] && [ -n "$SEVEND_TIME" ]; then SEVEND_TEXT="$SEVEND_USED → $SEVEND_TIME"
+elif [ -n "$SEVEND_USED" ];                          then SEVEND_TEXT="$SEVEND_USED"
+elif [ -n "$SEVEND_TIME" ];                          then SEVEND_TEXT="$SEVEND_TIME"
+else                                                      SEVEND_TEXT="—"
 fi
 
 # --- Colors (ANSI, optional — comment out these 5 lines to go monochrome) ---

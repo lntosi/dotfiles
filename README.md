@@ -12,7 +12,7 @@ Custom statusline for [Claude Code](https://claude.com/claude-code).
 - **model** — active model's `display_name`, shown in cyan.
 - **ctx** — 10-cell progress bar + percentage of the context window used; green <50%, yellow <80%, red ≥80%.
 - **5h** — percent consumed of the 5-hour rate-limit window and time until it resets (`78% → 2h22m`). Falls back to `—` until the payload includes `rate_limits.five_hour`.
-- **7d** — percent consumed of the 7-day rate-limit window. Falls back to `—` when absent.
+- **7d** — percent consumed of the 7-day rate-limit window and the day + local time of the next reset (`46% → Thu 18:53`). Falls back to `—` when absent.
 - **⏱** — cumulative duration of the current session (`Xh Ym`).
 
 ### Install
