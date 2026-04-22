@@ -70,8 +70,8 @@ SEVEND_TIME=""
 if [ -n "$SEVEND_RESET" ]; then
     REMAIN_S=$(( SEVEND_RESET - NOW ))
     if [ "$REMAIN_S" -gt 0 ]; then
-        RESET_DAY=$(date -d "@$SEVEND_RESET" +%a)
-        RESET_HOUR=$(date -d "@$SEVEND_RESET" +%H:%M)
+        RESET_DAY=$(date -r "$SEVEND_RESET" +%a 2>/dev/null || date -d "@$SEVEND_RESET" +%a)
+        RESET_HOUR=$(date -r "$SEVEND_RESET" +%H:%M 2>/dev/null || date -d "@$SEVEND_RESET" +%H:%M)
         SEVEND_TIME="${RESET_DAY} ${RESET_HOUR}"
     else
         SEVEND_TIME="reset"
