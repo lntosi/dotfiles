@@ -18,8 +18,8 @@ CWD=$(printf '%s' "$INPUT"    | jq -r '.workspace.current_dir                 //
 CTX_PCT=$(printf '%s' "$INPUT"| jq -r '.context_window.used_percentage        // 0 | floor')
 DUR_MS=$(printf '%s' "$INPUT" | jq -r '.cost.total_duration_ms                // 0')
 FIVEH_RESET=$(printf '%s' "$INPUT"  | jq -r '.rate_limits.five_hour.resets_at       // empty')
-FIVEH_PCT=$(printf '%s' "$INPUT"    | jq -r '.rate_limits.five_hour.used_percentage  // empty')
-SEVEND_PCT=$(printf '%s' "$INPUT"   | jq -r '.rate_limits.seven_day.used_percentage  // empty')
+FIVEH_PCT=$(printf '%s' "$INPUT"    | jq -r '.rate_limits.five_hour.used_percentage  // empty | floor')
+SEVEND_PCT=$(printf '%s' "$INPUT"   | jq -r '.rate_limits.seven_day.used_percentage  // empty | floor')
 SEVEND_RESET=$(printf '%s' "$INPUT" | jq -r '.rate_limits.seven_day.resets_at        // empty')
 
 # --- CWD: collapse $HOME to ~ ---
@@ -58,11 +58,10 @@ if [ -n "$FIVEH_RESET" ]; then
 fi
 FIVEH_USED=""
 if [ -n "$FIVEH_PCT" ]; then
-    FIVEH_INT=$(printf '%.0f' "$FIVEH_PCT")
-    if [ "$FIVEH_INT" -ge 100 ]; then
+    if [ "$FIVEH_PCT" -ge 100 ]; then
         FIVEH_USED=$'\033[31mMAX\033[0m'
     else
-        FIVEH_USED="${FIVEH_INT}%"
+        FIVEH_USED="${FIVEH_PCT}%"
     fi
 fi
 
@@ -86,11 +85,10 @@ if [ -n "$SEVEND_RESET" ]; then
 fi
 SEVEND_USED=""
 if [ -n "$SEVEND_PCT" ]; then
-    SEVEND_INT=$(printf '%.0f' "$SEVEND_PCT")
-    if [ "$SEVEND_INT" -ge 100 ]; then
+    if [ "$SEVEND_PCT" -ge 100 ]; then
         SEVEND_USED=$'\033[31mMAX\033[0m'
     else
-        SEVEND_USED="${SEVEND_INT}%"
+        SEVEND_USED="${SEVEND_PCT}%"
     fi
 fi
 
