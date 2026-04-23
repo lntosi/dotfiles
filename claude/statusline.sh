@@ -57,7 +57,14 @@ if [ -n "$FIVEH_RESET" ]; then
     fi
 fi
 FIVEH_USED=""
-[ -n "$FIVEH_PCT" ] && FIVEH_USED="$(printf '%.0f' "$FIVEH_PCT")%"
+if [ -n "$FIVEH_PCT" ]; then
+    FIVEH_INT=$(printf '%.0f' "$FIVEH_PCT")
+    if [ "$FIVEH_INT" -ge 100 ]; then
+        FIVEH_USED=$'\033[31mMAX\033[0m'
+    else
+        FIVEH_USED="${FIVEH_INT}%"
+    fi
+fi
 
 if   [ -n "$FIVEH_USED" ] && [ -n "$FIVEH_TIME" ]; then FIVEH_TEXT="$FIVEH_USED → $FIVEH_TIME"
 elif [ -n "$FIVEH_USED" ];                         then FIVEH_TEXT="$FIVEH_USED"
@@ -78,7 +85,14 @@ if [ -n "$SEVEND_RESET" ]; then
     fi
 fi
 SEVEND_USED=""
-[ -n "$SEVEND_PCT" ] && SEVEND_USED="$(printf '%.0f' "$SEVEND_PCT")%"
+if [ -n "$SEVEND_PCT" ]; then
+    SEVEND_INT=$(printf '%.0f' "$SEVEND_PCT")
+    if [ "$SEVEND_INT" -ge 100 ]; then
+        SEVEND_USED=$'\033[31mMAX\033[0m'
+    else
+        SEVEND_USED="${SEVEND_INT}%"
+    fi
+fi
 
 if   [ -n "$SEVEND_USED" ] && [ -n "$SEVEND_TIME" ]; then SEVEND_TEXT="$SEVEND_USED → $SEVEND_TIME"
 elif [ -n "$SEVEND_USED" ];                          then SEVEND_TEXT="$SEVEND_USED"
