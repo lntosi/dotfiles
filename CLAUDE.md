@@ -34,6 +34,7 @@ No build step, no test suite, no linter configured — this is pure bash.
 The statusline is a **stdin → stdout filter**. Claude Code pipes a session JSON blob to `statusline.sh` on every refresh; the script emits a single formatted line. This shapes two properties:
 
 - **All fields are optional with fallbacks.** The script uses `jq -r '… // default'` for every extraction so an unexpected or partial payload never breaks the statusline. When adding a new field, follow the same pattern.
+- **External lookups must never block.** The service-status segment polls `status.claude.com` but does so off the critical path: a detached background `curl` revalidates a 5-minute file cache (`~/.claude/.statusline-status`) while the current render uses the stale value. `curl` is a *soft* dependency — without it the segment falls back to a neutral dot, so the statusline still works. Any future network field must follow this cache-then-revalidate pattern, not a synchronous fetch.
 - **Output must be exactly one line.** The `printf` at the bottom uses a single format string — don't introduce newlines.
 
 The installer (`install.sh`) is deliberately **non-destructive and transparent**:
@@ -51,3 +52,4 @@ Non-interactive shells (no TTY on stdin) abort on conflict rather than silently 
 
 - Distribution model is `git clone ~/dotfiles` + run the installer. The installer expects `statusline.sh` next to it on disk — curl-pipe is intentionally unsupported.
 - Hard dependency: `jq`. The installer fails fast if it's missing.
+- Soft dependency: `curl`, used only by the service-status segment; absent, that segment renders a neutral dot and everything else works.
