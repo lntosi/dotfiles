@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Code statusline.
 # Reads session JSON from stdin, prints one line.
-# Fields: cwd | model | context bar + % | 5h used% → reset | 7d used% → day+hours | session duration.
+# Fields: cwd | model | context bar + % | 5h used% → reset | 7d used% → day+hours | service status | session duration.
 #
 # Toggle: export CLAUDE_STATUSLINE_OFF=1 to disable (silent exit, no line rendered).
 #         unset CLAUDE_STATUSLINE_OFF (or set to 0) to re-enable.
@@ -106,11 +106,40 @@ elif [ "$CTX_PCT" -lt 80 ]; then CTX_COLOR="$YELLOW"
 else                             CTX_COLOR="$RED"; fi
 SEP="${DIM}│${RESET}"
 
+# --- Claude service status (status.claude.com) — cached, refreshed in background ---
+# Never blocks: a stale cache is rendered while a detached curl revalidates it.
+# Soft dependency on curl — without it, the segment falls back to a neutral dot.
+STATUS_CACHE="${HOME}/.claude/.statusline-status"
+STATUS_TTL=300
+STATUS_INDICATOR="none"
+if command -v curl >/dev/null 2>&1; then
+    CACHE_AGE=$STATUS_TTL
+    if [ -f "$STATUS_CACHE" ]; then
+        CACHE_MTIME=$(stat -c %Y "$STATUS_CACHE" 2>/dev/null || stat -f %m "$STATUS_CACHE" 2>/dev/null || echo 0)
+        CACHE_AGE=$(( NOW - CACHE_MTIME ))
+    fi
+    if [ "$CACHE_AGE" -ge "$STATUS_TTL" ]; then
+        ( curl -fsS --max-time 4 https://status.claude.com/api/v2/status.json 2>/dev/null \
+            | jq -r '.status.indicator // "none"' > "${STATUS_CACHE}.tmp" 2>/dev/null \
+            && mv "${STATUS_CACHE}.tmp" "$STATUS_CACHE" ) >/dev/null 2>&1 &
+    fi
+    [ -f "$STATUS_CACHE" ] && STATUS_INDICATOR=$(cat "$STATUS_CACHE" 2>/dev/null || echo none)
+fi
+case "$STATUS_INDICATOR" in
+    none)        STATUS_TEXT="${GREEN}●${RESET}" ;;
+    minor)       STATUS_TEXT="${YELLOW}⚠ minor${RESET}" ;;
+    major)       STATUS_TEXT="${RED}⚠ major${RESET}" ;;
+    critical)    STATUS_TEXT="${RED}⚠ critical${RESET}" ;;
+    maintenance) STATUS_TEXT="${CYAN}⚙ maint${RESET}" ;;
+    *)           STATUS_TEXT="${GREEN}●${RESET}" ;;
+esac
+
 # --- Output ---
-printf '%s %s %s%s%s %s ctx %s%s%s %d%% %s 5h %s %s 7d %s %s ⏱ %s\n' \
+printf '%s %s %s%s%s %s ctx %s%s%s %d%% %s 5h %s %s 7d %s %s %s %s ⏱ %s\n' \
     "$CWD_SHORT" "$SEP" \
     "$CYAN" "$MODEL" "$RESET" "$SEP" \
     "$CTX_COLOR" "$BAR" "$RESET" "$CTX_PCT" "$SEP" \
     "$FIVEH_TEXT" "$SEP" \
     "$SEVEND_TEXT" "$SEP" \
+    "$STATUS_TEXT" "$SEP" \
     "$DURATION"

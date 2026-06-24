@@ -13,6 +13,7 @@ Custom statusline for [Claude Code](https://claude.com/claude-code).
 - **ctx** — 10-cell progress bar + percentage of the context window used; green <50%, yellow <80%, red ≥80%.
 - **5h** — percent consumed of the 5-hour rate-limit window and time until it resets (`78% → 2h22m`). When the quota is exhausted (≥100%), the percentage is replaced by `MAX` in red. Falls back to `—` until the payload includes `rate_limits.five_hour`.
 - **7d** — percent consumed of the 7-day rate-limit window and the day + local time of the next reset (`46% → Thu 18:53`). Same `MAX` indicator when the quota is hit. Falls back to `—` when absent.
+- **service status** — Claude platform health from [status.claude.com](https://status.claude.com): green `●` when all systems are operational, `⚠ minor`/`⚠ major`/`⚠ critical` (yellow/red) during an incident, `⚙ maint` (cyan) during maintenance. The result is cached for 5 minutes and revalidated by a detached background `curl`, so the segment never blocks the statusline. Without `curl` it falls back to the neutral green dot. Reflects Anthropic's global status only — not the selected model or your local session.
 - **⏱** — cumulative duration of the current session (`Xh Ym`).
 
 ### Install
@@ -28,6 +29,7 @@ git clone git@github.com:lntosi/dotfiles.git ~/dotfiles
 
 - `bash` (macOS / Linux default)
 - `jq` — install with `brew install jq` (macOS) or `apt install jq` (Debian/Ubuntu)
+- `curl` (optional) — only for the service-status segment; absent it falls back to a neutral dot
 
 ### Toggle
 
