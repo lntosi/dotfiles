@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Code statusline.
 # Reads session JSON from stdin, prints one line.
-# Fields: cwd | model | context bar + % | 5h used% → reset | 7d used% → day+hours | service status | session duration.
+# Fields: cwd | model | context bar + % | 5h used% + pace → reset | 7d used% → day+hours | service status | session duration.
 #
 # Toggle: export CLAUDE_STATUSLINE_OFF=1 to disable (silent exit, no line rendered).
 #         unset CLAUDE_STATUSLINE_OFF (or set to 0) to re-enable.
@@ -11,19 +11,24 @@ set -eu
 [ "${CLAUDE_STATUSLINE_OFF:-0}" = "1" ] && exit 0
 
 INPUT="$(cat)"
+[ -n "$INPUT" ] || INPUT='null'
 
 # --- Extract via jq (all fields have fallbacks) ---
-MODEL=$(printf '%s' "$INPUT"  | jq -r '.model.display_name                    // "?"')
-CWD=$(printf '%s' "$INPUT"    | jq -r '.workspace.current_dir                 // "."')
-CTX_PCT=$(printf '%s' "$INPUT"| jq -r '.context_window.used_percentage        // 0 | floor')
-DUR_MS=$(printf '%s' "$INPUT" | jq -r '.cost.total_duration_ms                // 0')
-FIVEH_RESET=$(printf '%s' "$INPUT"  | jq -r '.rate_limits.five_hour.resets_at       // empty')
-FIVEH_PCT=$(printf '%s' "$INPUT"    | jq -r '.rate_limits.five_hour.used_percentage  // empty | floor')
-SEVEND_PCT=$(printf '%s' "$INPUT"   | jq -r '.rate_limits.seven_day.used_percentage  // empty | floor')
-SEVEND_RESET=$(printf '%s' "$INPUT" | jq -r '.rate_limits.seven_day.resets_at        // empty')
+# Each extraction is also guarded with `|| fallback` and numeric fields pass
+# through `tonumber? // … | floor`, so a malformed or wrong-typed payload
+# degrades to defaults instead of aborting under set -e and blanking the line.
+MODEL=$(printf '%s' "$INPUT"  | jq -r '.model.display_name    // "?" | gsub("[\n\r]";" ")' 2>/dev/null || echo "?")
+CWD=$(printf '%s' "$INPUT"    | jq -r '.workspace.current_dir // "." | gsub("[\n\r]";" ")' 2>/dev/null || echo ".")
+CTX_PCT=$(printf '%s' "$INPUT"| jq -r '.context_window.used_percentage // 0 | tonumber? // 0 | floor' 2>/dev/null || echo 0)
+DUR_MS=$(printf '%s' "$INPUT" | jq -r '.cost.total_duration_ms          // 0 | tonumber? // 0 | floor' 2>/dev/null || echo 0)
+FIVEH_RESET=$(printf '%s' "$INPUT"  | jq -r '.rate_limits.five_hour.resets_at        // empty | tonumber? // empty | floor' 2>/dev/null || true)
+FIVEH_PCT=$(printf '%s' "$INPUT"    | jq -r '.rate_limits.five_hour.used_percentage  // empty | tonumber? // empty | floor' 2>/dev/null || true)
+SEVEND_PCT=$(printf '%s' "$INPUT"   | jq -r '.rate_limits.seven_day.used_percentage  // empty | tonumber? // empty | floor' 2>/dev/null || true)
+SEVEND_RESET=$(printf '%s' "$INPUT" | jq -r '.rate_limits.seven_day.resets_at        // empty | tonumber? // empty | floor' 2>/dev/null || true)
 
 # --- CWD: collapse $HOME to ~ ---
-CWD_SHORT="${CWD/#$HOME/~}"
+CWD_SHORT="$CWD"
+[ -n "${HOME:-}" ] && CWD_SHORT="${CWD/#$HOME/~}"
 
 # --- Context progress bar (10 cells, filled proportional to %) ---
 FILLED=$(( CTX_PCT / 10 ))
@@ -43,15 +48,35 @@ else
     DURATION="${DUR_M}m"
 fi
 
-# --- 5h quota: used% → time until reset ---
+# --- Colors (ANSI, optional — comment out these 5 lines to go monochrome) ---
+DIM=$'\033[2m'; RESET=$'\033[0m'
+CYAN=$'\033[36m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'
+if   [ "$CTX_PCT" -lt 50 ]; then CTX_COLOR="$GREEN"
+elif [ "$CTX_PCT" -lt 80 ]; then CTX_COLOR="$YELLOW"
+else                             CTX_COLOR="$RED"; fi
+SEP="${DIM}│${RESET}"
+
+# --- 5h quota: used% + pace → time until reset ---
+# Pace = used% minus elapsed% of the 5h window. Positive means consumption is
+# running ahead of the sustainable rate — the early warning during multi-agent
+# runs, since the account-level used% already includes parallel subagents.
 NOW=$(date +%s)
 FIVEH_TIME=""
+FIVEH_PACE=""
 if [ -n "$FIVEH_RESET" ]; then
     REMAIN_S=$(( FIVEH_RESET - NOW ))
     if [ "$REMAIN_S" -gt 0 ]; then
         REMAIN_H=$(( REMAIN_S / 3600 ))
         REMAIN_M=$(( (REMAIN_S % 3600) / 60 ))
         FIVEH_TIME="${REMAIN_H}h${REMAIN_M}m"
+        if [ -n "$FIVEH_PCT" ] && [ "$REMAIN_S" -le 18000 ]; then
+            ELAPSED_PCT=$(( (18000 - REMAIN_S) * 100 / 18000 ))
+            PACE=$(( FIVEH_PCT - ELAPSED_PCT ))
+            if   [ "$PACE" -ge 15 ]; then FIVEH_PACE="${RED}↑${PACE}${RESET}"
+            elif [ "$PACE" -ge 5 ];  then FIVEH_PACE="${YELLOW}↑${PACE}${RESET}"
+            elif [ "$PACE" -le -5 ]; then FIVEH_PACE="${DIM}↓$(( -PACE ))${RESET}"
+            fi
+        fi
     else
         FIVEH_TIME="reset"
     fi
@@ -59,9 +84,10 @@ fi
 FIVEH_USED=""
 if [ -n "$FIVEH_PCT" ]; then
     if [ "$FIVEH_PCT" -ge 100 ]; then
-        FIVEH_USED=$'\033[31mMAX\033[0m'
+        FIVEH_USED="${RED}MAX${RESET}"
     else
         FIVEH_USED="${FIVEH_PCT}%"
+        [ -n "$FIVEH_PACE" ] && FIVEH_USED="$FIVEH_USED $FIVEH_PACE"
     fi
 fi
 
@@ -86,7 +112,7 @@ fi
 SEVEND_USED=""
 if [ -n "$SEVEND_PCT" ]; then
     if [ "$SEVEND_PCT" -ge 100 ]; then
-        SEVEND_USED=$'\033[31mMAX\033[0m'
+        SEVEND_USED="${RED}MAX${RESET}"
     else
         SEVEND_USED="${SEVEND_PCT}%"
     fi
@@ -97,14 +123,6 @@ elif [ -n "$SEVEND_USED" ];                          then SEVEND_TEXT="$SEVEND_U
 elif [ -n "$SEVEND_TIME" ];                          then SEVEND_TEXT="$SEVEND_TIME"
 else                                                      SEVEND_TEXT="—"
 fi
-
-# --- Colors (ANSI, optional — comment out these 5 lines to go monochrome) ---
-DIM=$'\033[2m'; RESET=$'\033[0m'
-CYAN=$'\033[36m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'
-if   [ "$CTX_PCT" -lt 50 ]; then CTX_COLOR="$GREEN"
-elif [ "$CTX_PCT" -lt 80 ]; then CTX_COLOR="$YELLOW"
-else                             CTX_COLOR="$RED"; fi
-SEP="${DIM}│${RESET}"
 
 # --- Claude service status (status.claude.com) — cached, refreshed in background ---
 # Never blocks: a stale cache is rendered while a detached curl revalidates it.

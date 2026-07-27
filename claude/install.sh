@@ -80,7 +80,10 @@ else
 fi
 
 # 4. Update settings.json
-NEW_FIELD='{"statusLine": {"type": "command", "command": "bash ~/.claude/statusline.sh"}}'
+# refreshInterval (seconds) re-runs the statusline on a timer in addition to
+# event-driven updates, so rate-limit fields stay live while the session idles
+# waiting on background subagents.
+NEW_FIELD='{"statusLine": {"type": "command", "command": "bash ~/.claude/statusline.sh", "refreshInterval": 30}}'
 
 if [ -f "$SETTINGS" ]; then
     jq empty "$SETTINGS" 2>/dev/null || die "existing $SETTINGS is not valid JSON — fix or move it before re-running"
@@ -122,7 +125,7 @@ else
 fi
 
 # 5. Smoke test
-SAMPLE='{"model":{"display_name":"TestModel"},"workspace":{"current_dir":"'$PWD'"},"context_window":{"used_percentage":42},"cost":{"total_duration_ms":60000}}'
+SAMPLE='{"model":{"display_name":"TestModel"},"workspace":{"current_dir":"'$PWD'"},"context_window":{"used_percentage":42},"cost":{"total_duration_ms":60000},"rate_limits":{"five_hour":{"used_percentage":60,"resets_at":'$(( $(date +%s) + 9000 ))'},"seven_day":{"used_percentage":30,"resets_at":'$(( $(date +%s) + 300000 ))'}}}'
 OUTPUT=$(printf '%s' "$SAMPLE" | bash "$SCRIPT_DEST" 2>&1 || true)
 if [ -z "$OUTPUT" ]; then
     warn "script ran but produced no output — check $SCRIPT_DEST manually"
