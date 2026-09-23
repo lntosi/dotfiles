@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Code statusline.
 # Reads session JSON from stdin, prints one line.
-# Fields: cwd | model | context bar + % | 5h used% + pace → reset | 7d used% → day+hours | service status | session duration.
+# Fields: cwd | git branch | model | context bar + % | 5h used% + pace → reset | 7d used% → day+hours | service status | session duration.
 #
 # Toggle: export CLAUDE_STATUSLINE_OFF=1 to disable (silent exit, no line rendered).
 #         unset CLAUDE_STATUSLINE_OFF (or set to 0) to re-enable.
@@ -50,11 +50,24 @@ fi
 
 # --- Colors (ANSI, optional — comment out these 5 lines to go monochrome) ---
 DIM=$'\033[2m'; RESET=$'\033[0m'
-CYAN=$'\033[36m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'
+CYAN=$'\033[36m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'; MAGENTA=$'\033[35m'
 if   [ "$CTX_PCT" -lt 50 ]; then CTX_COLOR="$GREEN"
 elif [ "$CTX_PCT" -lt 80 ]; then CTX_COLOR="$YELLOW"
 else                             CTX_COLOR="$RED"; fi
 SEP="${DIM}│${RESET}"
+
+# --- Git branch (purely local: no network, no blocking) ---
+# Soft dependency on git — outside a repo, or without git, the whole segment
+# (including its separator) is omitted instead of rendering an empty slot.
+# Detached HEAD falls back to the short commit SHA.
+BRANCH_TEXT=""
+if command -v git >/dev/null 2>&1; then
+    BRANCH=$(git -C "$CWD" symbolic-ref --quiet --short HEAD 2>/dev/null \
+          || git -C "$CWD" rev-parse --short HEAD 2>/dev/null \
+          || true)
+    BRANCH=${BRANCH//[$'\n\r']/ }
+    [ -n "$BRANCH" ] && BRANCH_TEXT=" $SEP ${MAGENTA}⎇ ${BRANCH}${RESET}"
+fi
 
 # --- 5h quota: used% + pace → time until reset ---
 # Pace = used% minus elapsed% of the 5h window. Positive means consumption is
@@ -153,8 +166,8 @@ case "$STATUS_INDICATOR" in
 esac
 
 # --- Output ---
-printf '%s %s %s%s%s %s ctx %s%s%s %d%% %s 5h %s %s 7d %s %s %s %s ⏱ %s\n' \
-    "$CWD_SHORT" "$SEP" \
+printf '%s%s %s %s%s%s %s ctx %s%s%s %d%% %s 5h %s %s 7d %s %s %s %s ⏱ %s\n' \
+    "$CWD_SHORT" "$BRANCH_TEXT" "$SEP" \
     "$CYAN" "$MODEL" "$RESET" "$SEP" \
     "$CTX_COLOR" "$BAR" "$RESET" "$CTX_PCT" "$SEP" \
     "$FIVEH_TEXT" "$SEP" \
