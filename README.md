@@ -9,6 +9,7 @@ Custom statusline for [Claude Code](https://claude.com/claude-code).
 ### Fields
 
 - **cwd** — current working directory (`$HOME` collapsed to `~`).
+- **git branch** — current branch of the repo containing `cwd`, in magenta (`⎇ main`); a detached HEAD shows the short commit SHA. Read locally with `git`, no network call. Outside a repo (or without `git` installed) the segment and its separator are omitted entirely.
 - **model** — active model's `display_name`, shown in cyan.
 - **ctx** — 10-cell progress bar + percentage of the context window used; green <50%, yellow <80%, red ≥80%.
 - **5h** — percent consumed of the 5-hour rate-limit window, a pace indicator, and time until reset (`60% ↑10 → 2h30m`). The pace arrow compares usage against the elapsed fraction of the window: `↑N` means you're N points ahead of the sustainable rate (yellow from +5, red from +15), dim `↓N` means you're under pace; on-pace shows no arrow. Because the percentage is account-level, it already includes tokens burned by parallel subagents and other sessions — the pace arrow is the early warning that a multi-agent run is eating the quota faster than the window replenishes. When the quota is exhausted (≥100%), the segment shows `MAX` in red. Falls back to `—` until the payload includes `rate_limits.five_hour` (requires a Pro/Max subscription).
