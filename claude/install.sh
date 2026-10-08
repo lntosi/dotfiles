@@ -12,6 +12,8 @@ set -euo pipefail
 CLAUDE_DIR="$HOME/.claude"
 SCRIPT_DEST="$CLAUDE_DIR/statusline.sh"
 SETTINGS="$CLAUDE_DIR/settings.json"
+# Must match STATUS_CACHE in statusline.sh.
+STATUS_CACHE="$CLAUDE_DIR/.statusline-status"
 SCRIPT_SRC="$(cd "$(dirname "$0")" && pwd)/statusline.sh"
 TS=$(date +%Y%m%d-%H%M%S)
 FORCE="${CLAUDE_STATUSLINE_FORCE:-0}"
@@ -72,6 +74,13 @@ if [ -f "$SCRIPT_DEST" ]; then
         cp "$SCRIPT_SRC" "$SCRIPT_DEST"
         chmod +x "$SCRIPT_DEST"
         log "overwrote $SCRIPT_DEST"
+        # The service-status cache was written by the old script and may hold a
+        # value its filter no longer produces; drop it so the smoke test below
+        # starts a fresh fetch instead of rendering it for up to 5 minutes.
+        if [ -f "$STATUS_CACHE" ]; then
+            rm -f "$STATUS_CACHE" "$STATUS_CACHE.tmp"
+            log "cleared service-status cache ($STATUS_CACHE)"
+        fi
     fi
 else
     cp "$SCRIPT_SRC" "$SCRIPT_DEST"

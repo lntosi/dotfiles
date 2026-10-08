@@ -47,6 +47,8 @@ The installer (`install.sh`) is deliberately **non-destructive and transparent**
 5. Merges *only* the `statusLine` field using `jq '. * $new'` — other settings in `settings.json` are preserved.
 6. Runs a smoke test by piping the sample payload through the installed script.
 
+When `statusline.sh` is overwritten with a changed version, the installer also deletes the service-status cache (`~/.claude/.statusline-status`) — otherwise the new script would render the old script's verdict for up to 5 minutes. The smoke test then kicks off a fresh fetch. Idempotent re-runs leave the cache alone. If you rename the cache file, update `STATUS_CACHE` in both scripts.
+
 Non-interactive shells (no TTY on stdin) abort on conflict rather than silently overwriting; `CLAUDE_STATUSLINE_FORCE=1` is the explicit override for automation. When editing `install.sh`, preserve this invariant: **any path that overwrites an existing customized value must go through the `confirm` helper**, and the backup-then-merge flow must not be bypassed.
 
 The merged `statusLine` block also carries `"refreshInterval": 30`, so the line re-renders every 30s while the session idles (in addition to event-driven updates) — this keeps the rate-limit and pace fields live during long multi-agent runs. It lives in the `NEW_FIELD` definition in `install.sh`; any change to the merged settings shape belongs there so the diff-and-merge flow picks it up.
