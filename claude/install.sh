@@ -47,7 +47,7 @@ echo "Claude Code statusline — install"
 echo ""
 
 # 1. Prerequisites
-command -v jq   >/dev/null 2>&1 || die "jq is required. Install with: brew install jq  (macOS)  |  apt install jq  (Debian/Ubuntu)"
+command -v jq   >/dev/null 2>&1 || die "jq is required. Install with: brew install jq  (macOS)  |  apt install jq  (Debian/Ubuntu)  |  winget install jqlang.jq  (Windows; then close all terminals and restart Claude Code so the new PATH is picked up)"
 command -v bash >/dev/null 2>&1 || die "bash is required"
 command -v diff >/dev/null 2>&1 || die "diff is required"
 [ -f "$SCRIPT_SRC" ] || die "statusline.sh not found alongside install.sh (looked at $SCRIPT_SRC)"
@@ -129,6 +129,10 @@ SAMPLE='{"model":{"display_name":"TestModel"},"workspace":{"current_dir":"'$PWD'
 OUTPUT=$(printf '%s' "$SAMPLE" | bash "$SCRIPT_DEST" 2>&1 || true)
 if [ -z "$OUTPUT" ]; then
     warn "script ran but produced no output — check $SCRIPT_DEST manually"
+elif ! printf '%s' "$OUTPUT" | grep -q 'TestModel'; then
+    # Non-empty isn't enough: with jq unusable the line still renders, just with
+    # every field at its default (model "?").
+    warn "script ran but didn't render the sample model name — check that jq works in the shell Claude Code uses"
 else
     log "smoke test ok"
 fi

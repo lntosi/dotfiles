@@ -29,7 +29,7 @@ git clone git@github.com:lntosi/dotfiles.git ~/dotfiles
 ### Requirements
 
 - `bash` (macOS / Linux default)
-- `jq` — install with `brew install jq` (macOS) or `apt install jq` (Debian/Ubuntu)
+- `jq` — install with `brew install jq` (macOS), `apt install jq` (Debian/Ubuntu) or `winget install jqlang.jq` (Windows — then close all terminals and restart Claude Code; until then the statusline shows `jq not found`)
 - `curl` (optional) — only for the service-status segment; absent it falls back to a neutral dot
 
 ### Toggle

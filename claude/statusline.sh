@@ -10,6 +10,14 @@ set -eu
 
 [ "${CLAUDE_STATUSLINE_OFF:-0}" = "1" ] && exit 0
 
+# Without jq every extraction below falls back to its default (model "?", ctx 0%,
+# no rate limits) with no hint why. Typical cause: jq installed after Claude Code
+# started, so the shell it spawns has a stale PATH. Say so instead.
+if ! command -v jq >/dev/null 2>&1; then
+    printf 'statusline: jq not found on PATH — install jq, then restart Claude Code\n'
+    exit 0
+fi
+
 INPUT="$(cat)"
 [ -n "$INPUT" ] || INPUT='null'
 
