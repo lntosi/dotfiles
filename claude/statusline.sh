@@ -140,7 +140,32 @@ fi
 # --- Claude service status (status.claude.com) — cached, refreshed in background ---
 # Never blocks: a stale cache is rendered while a detached curl revalidates it.
 # Soft dependency on curl — without it, the segment falls back to a neutral dot.
+# Judged by what affects Claude Code, from summary.json:
+#   - the "Claude API" / "Claude Code" component statuses, and
+#   - the impact of every open incident that names those components OR names no
+#     component at all — Anthropic sometimes files model-wide outages without
+#     components (2026-07-29 critical, 2026-08-04 major), so "no component" must
+#     count as "may affect you", never as "doesn't affect you".
+# The worst of those wins. Incidents confined to other services (claude.ai, Console,
+# Cowork) don't colour the dot, but a dim "other" keeps them visible — e.g. a
+# claude.ai login incident can still hit subscription logins. If the two components
+# can't be found at all, falls back to the page-wide indicator.
 STATUS_CACHE="${HOME}/.claude/.statusline-status"
+STATUS_FILTER='
+  def rank: {"none":0,"minor":1,"major":2,"critical":3}[.] // 0;
+  def isapi: (.name // "") | test("claude api|claude code"; "i");
+  [.components[]? | select(isapi)] as $rel
+  | if ($rel | length) == 0 then (.status.indicator // "none")
+    else
+      [.incidents[]? | select((.impact // "none") != "none")] as $open
+      | ( [$rel[] | {"major_outage":"major","partial_outage":"minor","degraded_performance":"minor"}[.status] // "none"]
+        + [$open[] | select(((.components // []) | length) == 0 or any(.components[]; isapi)) | .impact] )
+      | reduce .[] as $x ("none"; if ($x | rank) > (. | rank) then $x else . end)
+      | if . != "none" then .
+        elif any($rel[]; .status == "under_maintenance") then "maintenance"
+        elif ($open | length) > 0 then "other"
+        else "none" end
+    end'
 STATUS_TTL=300
 STATUS_INDICATOR="none"
 if command -v curl >/dev/null 2>&1; then
@@ -150,8 +175,8 @@ if command -v curl >/dev/null 2>&1; then
         CACHE_AGE=$(( NOW - CACHE_MTIME ))
     fi
     if [ "$CACHE_AGE" -ge "$STATUS_TTL" ]; then
-        ( curl -fsS --max-time 4 https://status.claude.com/api/v2/status.json 2>/dev/null \
-            | jq -r '.status.indicator // "none"' > "${STATUS_CACHE}.tmp" 2>/dev/null \
+        ( curl -fsS --max-time 4 https://status.claude.com/api/v2/summary.json 2>/dev/null \
+            | jq -r "$STATUS_FILTER" > "${STATUS_CACHE}.tmp" 2>/dev/null \
             && mv "${STATUS_CACHE}.tmp" "$STATUS_CACHE" ) >/dev/null 2>&1 &
     fi
     [ -f "$STATUS_CACHE" ] && STATUS_INDICATOR=$(cat "$STATUS_CACHE" 2>/dev/null || echo none)
@@ -162,6 +187,7 @@ case "$STATUS_INDICATOR" in
     major)       STATUS_TEXT="${RED}⚠ major${RESET}" ;;
     critical)    STATUS_TEXT="${RED}⚠ critical${RESET}" ;;
     maintenance) STATUS_TEXT="${CYAN}⚙ maint${RESET}" ;;
+    other)       STATUS_TEXT="${GREEN}●${RESET} ${DIM}other${RESET}" ;;
     *)           STATUS_TEXT="${GREEN}●${RESET}" ;;
 esac
 
