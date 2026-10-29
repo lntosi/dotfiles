@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Code statusline.
 # Reads session JSON from stdin, prints one line.
-# Fields: cwd | git branch | model | context bar + % | 5h used% + pace → reset | 7d used% → day+hours | service status | session duration.
+# Fields: cwd | git branch | model + effort | context bar + % | 5h used% + pace → reset | 7d used% → day+hours | service status | session duration.
 #
 # Toggle: export CLAUDE_STATUSLINE_OFF=1 to disable (silent exit, no line rendered).
 #         unset CLAUDE_STATUSLINE_OFF (or set to 0) to re-enable.
@@ -26,6 +26,7 @@ INPUT="$(cat)"
 # through `tonumber? // … | floor`, so a malformed or wrong-typed payload
 # degrades to defaults instead of aborting under set -e and blanking the line.
 MODEL=$(printf '%s' "$INPUT"  | jq -r '.model.display_name    // "?" | gsub("[\n\r]";" ")' 2>/dev/null || echo "?")
+EFFORT=$(printf '%s' "$INPUT" | jq -r '.effort.level // empty | strings | gsub("[\n\r]";" ")' 2>/dev/null || true)
 CWD=$(printf '%s' "$INPUT"    | jq -r '.workspace.current_dir // "." | gsub("[\n\r]";" ")' 2>/dev/null || echo ".")
 CTX_PCT=$(printf '%s' "$INPUT"| jq -r '.context_window.used_percentage // 0 | tonumber? // 0 | floor' 2>/dev/null || echo 0)
 DUR_MS=$(printf '%s' "$INPUT" | jq -r '.cost.total_duration_ms          // 0 | tonumber? // 0 | floor' 2>/dev/null || echo 0)
@@ -199,10 +200,14 @@ case "$STATUS_INDICATOR" in
     *)           STATUS_TEXT="${GREEN}●${RESET}" ;;
 esac
 
+# --- Effort: only present when the model supports it ---
+EFFORT_TEXT=""
+[ -n "$EFFORT" ] && EFFORT_TEXT=" ${DIM}${EFFORT}${RESET}"
+
 # --- Output ---
-printf '%s%s %s %s%s%s %s ctx %s%s%s %d%% %s 5h %s %s 7d %s %s %s %s ⏱ %s\n' \
+printf '%s%s %s %s%s%s%s %s ctx %s%s%s %d%% %s 5h %s %s 7d %s %s %s %s ⏱ %s\n' \
     "$CWD_SHORT" "$BRANCH_TEXT" "$SEP" \
-    "$CYAN" "$MODEL" "$RESET" "$SEP" \
+    "$CYAN" "$MODEL" "$RESET" "$EFFORT_TEXT" "$SEP" \
     "$CTX_COLOR" "$BAR" "$RESET" "$CTX_PCT" "$SEP" \
     "$FIVEH_TEXT" "$SEP" \
     "$SEVEND_TEXT" "$SEP" \
