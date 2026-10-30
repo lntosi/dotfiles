@@ -78,25 +78,30 @@ if command -v git >/dev/null 2>&1; then
     [ -n "$BRANCH" ] && BRANCH_TEXT=" $SEP ${MAGENTA}⎇ ${BRANCH}${RESET}"
 fi
 
-# --- 5h quota: used% + pace → time until reset ---
-# Pace = used% minus elapsed% of the 5h window. Positive means consumption is
-# running ahead of the sustainable rate — the early warning during multi-agent
-# runs, since the account-level used% already includes parallel subagents.
+# --- 5h quota: used% + exhaustion projection → time until reset ---
+# Projects when the quota runs out at the window's average rate so far
+# (used% over elapsed time). Shown only when that happens before the reset —
+# the early warning during multi-agent runs, since the account-level used%
+# already includes parallel subagents.
+fmt_dur() {  # seconds → "35m" / "2h9m"
+    if [ "$1" -lt 3600 ]; then printf '%dm' $(( $1 / 60 ))
+    else printf '%dh%dm' $(( $1 / 3600 )) $(( ($1 % 3600) / 60 ))
+    fi
+}
 NOW=$(date +%s)
 FIVEH_TIME=""
 FIVEH_PACE=""
 if [ -n "$FIVEH_RESET" ]; then
     REMAIN_S=$(( FIVEH_RESET - NOW ))
     if [ "$REMAIN_S" -gt 0 ]; then
-        REMAIN_H=$(( REMAIN_S / 3600 ))
-        REMAIN_M=$(( (REMAIN_S % 3600) / 60 ))
-        FIVEH_TIME="${REMAIN_H}h${REMAIN_M}m"
-        if [ -n "$FIVEH_PCT" ] && [ "$REMAIN_S" -le 18000 ]; then
-            ELAPSED_PCT=$(( (18000 - REMAIN_S) * 100 / 18000 ))
-            PACE=$(( FIVEH_PCT - ELAPSED_PCT ))
-            if   [ "$PACE" -ge 15 ]; then FIVEH_PACE="${RED}↑${PACE}${RESET}"
-            elif [ "$PACE" -ge 5 ];  then FIVEH_PACE="${YELLOW}↑${PACE}${RESET}"
-            elif [ "$PACE" -le -5 ]; then FIVEH_PACE="${DIM}↓$(( -PACE ))${RESET}"
+        FIVEH_TIME=$(fmt_dur "$REMAIN_S")
+        ELAPSED_S=$(( 18000 - REMAIN_S ))
+        if [ -n "$FIVEH_PCT" ] && [ "$FIVEH_PCT" -gt 0 ] && [ "$ELAPSED_S" -gt 0 ]; then
+            EXHAUST_S=$(( (100 - FIVEH_PCT) * ELAPSED_S / FIVEH_PCT ))
+            if [ "$EXHAUST_S" -lt "$REMAIN_S" ]; then
+                if [ "$EXHAUST_S" -lt 3600 ]; then PACE_COLOR=$RED; else PACE_COLOR=$YELLOW; fi
+                FIVEH_PACE="${PACE_COLOR}⚠ out in $(fmt_dur "$EXHAUST_S")${RESET}"
+                FIVEH_TIME="reset $FIVEH_TIME"
             fi
         fi
     else
