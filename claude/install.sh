@@ -93,6 +93,10 @@ fi
 # event-driven updates, so rate-limit fields stay live while the session idles
 # waiting on background subagents.
 NEW_FIELD='{"statusLine": {"type": "command", "command": "bash ~/.claude/statusline.sh", "refreshInterval": 30}}'
+# Claude Code reads settings.json at startup, so only a settings change needs a
+# restart. statusline.sh itself is re-run on every render, so an updated
+# script takes effect immediately.
+SETTINGS_CHANGED=0
 
 if [ -f "$SETTINGS" ]; then
     jq empty "$SETTINGS" 2>/dev/null || die "existing $SETTINGS is not valid JSON — fix or move it before re-running"
@@ -127,10 +131,12 @@ if [ -f "$SETTINGS" ]; then
         log "backed up existing settings → $BACKUP"
         printf '%s\n' "$MERGED" > "$SETTINGS"
         log "merged statusLine field into $SETTINGS"
+        SETTINGS_CHANGED=1
     fi
 else
     echo "$NEW_FIELD" | jq '.' > "$SETTINGS"
     log "created $SETTINGS"
+    SETTINGS_CHANGED=1
 fi
 
 # 5. Smoke test
@@ -150,7 +156,11 @@ echo ""
 echo "Preview:"
 echo "  $OUTPUT"
 echo ""
-echo "Done. Restart Claude Code to see the statusline."
+if [ "$SETTINGS_CHANGED" = 1 ]; then
+    echo "Done. Restart Claude Code to pick up the new settings."
+else
+    echo "Done. No restart needed — running sessions use the installed script on their next refresh."
+fi
 echo ""
 echo "Toggle:"
 echo "  export CLAUDE_STATUSLINE_OFF=1   # disable in this shell"
