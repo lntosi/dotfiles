@@ -80,9 +80,13 @@ fi
 
 # --- 5h quota: used% + exhaustion projection → time until reset ---
 # Projects when the quota runs out at the window's average rate so far
-# (used% over elapsed time). Shown only when that happens before the reset —
-# the early warning during multi-agent runs, since the account-level used%
+# (used% over elapsed time). Shown only when that happens before the reset
+# AND usage is at least PACE_MARGIN points ahead of the elapsed fraction of
+# the window — without the margin, a single burst in the first minutes
+# (2% after 3min) would already project exhaustion and raise a false alarm.
+# The early warning during multi-agent runs, since the account-level used%
 # already includes parallel subagents.
+PACE_MARGIN=5
 fmt_dur() {  # seconds → "35m" / "2h9m"
     if [ "$1" -lt 3600 ]; then printf '%dm' $(( $1 / 60 ))
     else printf '%dh%dm' $(( $1 / 3600 )) $(( ($1 % 3600) / 60 ))
@@ -96,9 +100,10 @@ if [ -n "$FIVEH_RESET" ]; then
     if [ "$REMAIN_S" -gt 0 ]; then
         FIVEH_TIME=$(fmt_dur "$REMAIN_S")
         ELAPSED_S=$(( 18000 - REMAIN_S ))
-        if [ -n "$FIVEH_PCT" ] && [ "$FIVEH_PCT" -gt 0 ] && [ "$ELAPSED_S" -gt 0 ]; then
+        if [ -n "$FIVEH_PCT" ] && [ "$FIVEH_PCT" -gt 0 ] && [ "$FIVEH_PCT" -lt 100 ] && [ "$ELAPSED_S" -gt 0 ]; then
+            PACE=$(( FIVEH_PCT - ELAPSED_S * 100 / 18000 ))
             EXHAUST_S=$(( (100 - FIVEH_PCT) * ELAPSED_S / FIVEH_PCT ))
-            if [ "$EXHAUST_S" -lt "$REMAIN_S" ]; then
+            if [ "$PACE" -ge "$PACE_MARGIN" ] && [ "$EXHAUST_S" -lt "$REMAIN_S" ]; then
                 if [ "$EXHAUST_S" -lt 3600 ]; then PACE_COLOR=$RED; else PACE_COLOR=$YELLOW; fi
                 FIVEH_PACE="${PACE_COLOR}⚠ out in $(fmt_dur "$EXHAUST_S")${RESET}"
                 FIVEH_TIME="reset $FIVEH_TIME"
